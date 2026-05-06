@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>分數運算大挑戰 - 邏輯修正版</title>
+    <style>
+        :root { --primary: #3498db; --success: #2ecc71; --warning: #f39c12; --danger: #e74c3c; }
+        body { font-family: "Microsoft JhengHei", 微軟正黑體, sans-serif; background-color: #f0f7ff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        .game-card { background: white; padding: 20px 40px; border-radius: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); width: 92vw; max-width: 1000px; height: 85vh; display: flex; flex-direction: column; justify-content: space-around; text-align: center; }
+        h1 { font-size: 2.2rem; margin: 10px 0; color: #2c3e50; }
+        .menu-container { display: flex; justify-content: center; gap: 20px; }
+        .menu-btn { background: var(--primary); color: white; padding: 40px 20px; border-radius: 20px; cursor: pointer; font-size: 1.6rem; transition: 0.3s; border: none; flex: 1; font-weight: bold; box-shadow: 0 6px #2980b9; }
+        .menu-btn:active { transform: translateY(4px); box-shadow: 0 2px #2980b9; }
+        .level-badge { background: var(--warning); color: white; padding: 8px 25px; border-radius: 50px; font-size: 1.2rem; display: inline-block; }
+        .stats { font-size: 1.4rem; background: #eef; padding: 12px; border-radius: 15px; }
+        .question-container { display: flex; align-items: center; justify-content: center; gap: 15px; font-size: 3.5rem; margin: 20px 0; min-height: 150px; position: relative; }
+        .fraction-box { display: inline-flex; align-items: center; }
+        .whole-part { font-weight: bold; margin-right: 5px; font-size: 4rem; }
+        .frac-stack { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; font-size: 2.5rem; }
+        .frac-line { border-top: 5px solid #333; width: 110%; margin: 4px 0; }
+        .answer-area { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 25px; background: #fdfdfd; border-radius: 20px; border: 3px dashed var(--primary); }
+        .input-whole { width: 100px; height: 100px; font-size: 3rem; text-align: center; border: 4px solid #bdc3c7; border-radius: 15px; }
+        .input-num-den { width: 90px; height: 70px; font-size: 2.5rem; text-align: center; border: 4px solid #bdc3c7; border-radius: 12px; }
+        .input-line { width: 100px; height: 5px; background: #333; margin: 5px 0; }
+        .control-btns { display: flex; justify-content: center; gap: 20px; }
+        .action-btn { padding: 15px 50px; font-size: 1.5rem; cursor: pointer; border: none; border-radius: 50px; font-weight: bold; }
+        .btn-check { background: var(--primary); color: white; }
+        .btn-next { background: var(--success); color: white; display: none; }
+        .btn-back { background: #95a5a6; color: white; }
+        #feedback { font-size: 1.5rem; font-weight: bold; min-height: 60px; }
+        .paren { font-size: 4.5rem; color: #2c3e50; padding: 0 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="game-card">
+    <div id="start-menu">
+        <h1>分數運算大挑戰</h1>
+        <p style="font-size: 1.4rem; color: #7f8c8d;">修正邏輯優化版</p>
+        <div class="menu-container">
+            <button class="menu-btn" onclick="startGame('add')">加法模式</button>
+            <button class="menu-btn" onclick="startGame('sub')" style="background-color: #27ae60; box-shadow: 0 6px #1e8449;">減法模式</button>
+            <button class="menu-btn" onclick="startGame('mix')" style="background-color: #8e44ad; box-shadow: 0 6px #703688;">混合計算</button>
+        </div>
+    </div>
+
+    <div id="game-play" style="display:none;">
+        <div>
+            <div id="level-display" class="level-badge">等級 1</div>
+            <div class="stats">得分：<span id="score">0</span> | 連勝：<span id="streak">0</span></div>
+        </div>
+
+        <div class="question-container" id="question"></div>
+
+        <div class="answer-area">
+            <span style="font-size: 4rem;">=</span>
+            <input type="number" id="ans-whole" class="input-whole" inputmode="numeric" placeholder="整">
+            <div class="input-frac-group">
+                <input type="number" id="ans-num" class="input-num-den" inputmode="numeric" placeholder="子">
+                <div class="input-line"></div>
+                <input type="number" id="ans-den" class="input-num-den" inputmode="numeric" placeholder="母">
+            </div>
+        </div>
+
+        <div id="feedback"></div>
+
+        <div class="control-btns">
+            <button class="action-btn btn-back" onclick="backToMenu()">返回</button>
+            <button id="check-btn" class="action-btn btn-check" onclick="checkAnswer()">提交</button>
+            <button id="next-btn" class="action-btn btn-next" onclick="nextQuestion()">下一題</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let score = 0, streak = 0, currentLevel = 1, gameMode = '', correctAns = {};
+    const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+
+    function startGame(mode) {
+        gameMode = mode; score = 0; streak = 0;
+        document.getElementById('start-menu').style.display = 'none';
+        document.getElementById('game-play').style.display = 'block';
+        generateQuestion();
+    }
+
+    function backToMenu() {
+        document.getElementById('start-menu').style.display = 'block';
+        document.getElementById('game-play').style.display = 'none';
+    }
+
+    function generateQuestion() {
+        currentLevel = Math.floor(score / 30) + 1;
+        document.getElementById('level-display').innerText = `等級 ${currentLevel}`;
+        
+        let den = Math.floor(Math.random() * (currentLevel >= 3 ? 35 : 8)) + 2; 
+        if (den > 50) den = 50;
+
+        let terms = [], ops = [], hasParen = false, totalImproperNumerator = 0;
+
+        for (let i = 0; i < 500; i++) {
+            terms = []; ops = []; hasParen = false;
+            let numTerms = (currentLevel >= 4 || gameMode === 'mix') ? 3 : 2;
+
+            for (let j = 0; j < numTerms; j++) {
+                let w = 0, n = 0;
+                if (currentLevel === 1) {
+                    if (gameMode === 'add') { w = 0; n = Math.floor(Math.random() * (den/2)) + 1; }
+                    else { w = Math.floor(Math.random() * 3) + 2; n = Math.floor(Math.random() * (den-1)) + 1; }
+                } else {
+                    w = Math.floor(Math.random() * 5); n = Math.floor(Math.random() * den);
+                }
+                if (w === 0 && n === 0) n = 1;
+                terms.push({ w, n, d: den });
+            }
+
+            // 計算邏輯
+            if (gameMode === 'add') {
+                ops = Array(numTerms - 1).fill('+');
+                totalImproperNumerator = terms.reduce((s, t) => s + (t.w * den + t.n), 0);
+            } else if (gameMode === 'sub') {
+                ops = Array(numTerms - 1).fill('-');
+                terms.sort((a, b) => (b.w * den + b.n) - (a.w * den + a.n));
+                if (currentLevel === 1) { // 等級一不退位
+                    if (terms[0].n < terms[1].n) { let tmp = terms[0].n; terms[0].n = terms[1].n; terms[1].n = tmp; }
+                }
+                totalImproperNumerator = (terms[0].w * den + terms[0].n);
+                for(let k=1; k<numTerms; k++) totalImproperNumerator -= (terms[k].w * den + terms[k].n);
+            } else { // 混合模式
+                hasParen = (currentLevel >= 3 && Math.random() > 0.5);
+                if (hasParen) {
+                    ops = [Math.random() > 0.5 ? '+' : '-', '-'];
+                    let t0 = terms[0].w * den + terms[0].n;
+                    let t1 = terms[1].w * den + terms[1].n;
+                    let t2 = terms[2].w * den + terms[2].n;
+                    
+                    // 修正關鍵：確保括號內不為負數[cite: 1]
+                    if (t1 < t2) { let tmp = t1; t1 = t2; t2 = tmp; terms[1].w = Math.floor(t1/den); terms[1].n = t1%den; terms[2].w = Math.floor(t2/den); terms[2].n = t2%den; }
+                    
+                    let inner = t1 - t2;
+                    totalImproperNumerator = (ops[0] === '+') ? t0 + inner : t0 - inner;
+                } else {
+                    ops = [Math.random() > 0.5 ? '+' : '-', Math.random() > 0.5 ? '+' : '-'];
+                    totalImproperNumerator = (terms[0].w * den + terms[0].n);
+                    for(let k=1; k<numTerms; k++) {
+                        let val = terms[k].w * den + terms[k].n;
+                        totalImproperNumerator = (ops[k-1] === '+') ? totalImproperNumerator + val : totalImproperNumerator - val;
+                    }
+                }
+            }
+
+            if (totalImproperNumerator > 0) break;
+        }
+
+        // 最簡分數答案處理
+        let common = gcd(totalImproperNumerator, den);
+        let finalNum = totalImproperNumerator / common;
+        let finalDen = den / common;
+        
+        correctAns = {
+            w: Math.floor(finalNum / finalDen),
+            n: finalNum % finalDen,
+            d: (finalNum % finalDen === 0) ? 0 : finalDen
+        };
+        
+        renderQuestion(terms, ops, hasParen);
+    }
+
+    function renderQuestion(terms, ops, hasParen) {
+        const qElem = document.getElementById('question');
+        qElem.innerHTML = '';
+        terms.forEach((t, i) => {
+            if (hasParen && i === 1) qElem.innerHTML += '<span class="paren">(</span>';
+            let html = `<div class="fraction-box">`;
+            if (t.w > 0 || (t.w === 0 && t.n === 0)) html += `<span class="whole-part">${t.w}</span>`;
+            if (t.n > 0) html += `<div class="frac-stack"><span>${t.n}</span><div class="frac-line"></div><span>${den = t.d}</span></div>`;
+            html += `</div>`;
+            qElem.innerHTML += html;
+            if (hasParen && i === 2) qElem.innerHTML += '<span class="paren">)</span>';
+            if (i < ops.length) qElem.innerHTML += `<span style="margin:0 15px">${ops[i]}</span>`;
+        });
+    }
+
+    function checkAnswer() {
+        const uW = parseInt(document.getElementById('ans-whole').value) || 0;
+        const uN = parseInt(document.getElementById('ans-num').value) || 0;
+        const uD = parseInt(document.getElementById('ans-den').value) || 0;
+        const fb = document.getElementById('feedback');
+
+        // 判定邏輯：完全匹配 correctAns[cite: 1]
+        let isCorrect = (uW === correctAns.w && uN === correctAns.n);
+        if (correctAns.n !== 0) {
+            if (uD !== correctAns.d) isCorrect = false;
+        } else {
+            if (uN !== 0 || uD !== 0) isCorrect = false;
+        }
+
+        if (isCorrect) {
+            score += 10; streak++;
+            fb.innerHTML = '<span style="color:var(--success);">正確！邏輯判定完美！ 🌟</span>';
+            document.getElementById('check-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'inline-block';
+        } else {
+            streak = 0;
+            let hint = "再算一次看看，注意約分或整數部分！";
+            if (uN !== 0 && uD !== 0 && gcd(uN, uD) > 1) hint = "提示：你的答案不是【最簡分數】，請約分。";
+            else if (uN >= uD && uD !== 0) hint = "提示：分子不能大於分母，請換成【帶分數】。";
+            fb.innerHTML = `<span style="color:var(--danger);">${hint}</span>`;
+        }
+        document.getElementById('score').innerText = score;
+    }
+
+    function nextQuestion() {
+        ['ans-whole', 'ans-num', 'ans-den'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('feedback').innerHTML = '';
+        document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('check-btn').style.display = 'inline-block';
+        generateQuestion();
+    }
+</script>
+</body>
+</html>
